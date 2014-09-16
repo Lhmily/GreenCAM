@@ -5,10 +5,15 @@
  *      Author: Lhmily
  */
 #include "../header/Base.h"
-bool CompressElementDstComp(CompressElement i, CompressElement j) {
+
+bool NodeDstComp(Node i, Node j) {
 	return i.getDst() < j.getDst();
 }
 
-bool CompressElementOrderDstComp(CompressElement i, CompressElement j) {
+bool NodeOrderComp(Node i, Node j) {
 	return i.getOrder() < j.getOrder();
+}
+
+bool TcamNodeComp(Tcam_Node i, Tcam_Node j) {
+	return i.getNj() < j.getNj();
 }

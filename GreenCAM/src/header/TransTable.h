@@ -9,6 +9,7 @@
 #define TRANSTABLE_H_
 #include <vector>
 #include "Compress.h"
+#include <cmath>
 
 class TransTable {
 private:
@@ -30,7 +31,14 @@ public:
 
 	void print_tree_dot();
 
+	void print_rebuild_tree_dot();
+
 	void print_compress_table();
+
+	void print();
+
+private:
+	void rebuild_tree(vector<Node> &list);
 };
 
 #endif /* TRANSTABLE_H_ */

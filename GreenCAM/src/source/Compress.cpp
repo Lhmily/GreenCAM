@@ -9,6 +9,8 @@
 
 Compress::Compress() {
 	// TODO Auto-generated constructor stub
+	tcam_parameters.CMOS_tech = 0.18;
+	tcam_parameters.Nrd = 1;
 }
 
 void Compress::init(DFA *dfa) {
@@ -194,9 +196,8 @@ size_t Compress::isCover(size_t state_1, size_t state_2) {
 void Compress::print_compress_table(ofstream &fout,
 		vector<vector<size_t> > &header) {
 
-	vector<vector<CompressElement> >::iterator table_it =
-			_compress_table.begin();
-	vector<CompressElement>::iterator code_it;
+	vector<vector<Node> >::iterator table_it = _compress_table.begin();
+	vector<Node>::iterator code_it;
 	vector<vector<size_t> >::iterator header_it = header.begin();
 	vector<size_t>::iterator h_it;
 
@@ -221,7 +222,7 @@ void Compress::print_compress_table(ofstream &fout,
 			++end;
 		}
 
-		fout << endl;
+		fout << "Transition entries: " << table_it->size() << endl << endl;
 		for (code_it = table_it->begin(); code_it != table_it->end();
 				++code_it) {
 			fout << code_it->_src_code << " -> " << code_it->_dst_code << "("
@@ -231,3 +232,419 @@ void Compress::print_compress_table(ofstream &fout,
 	}
 
 }
+void Compress::print_compress_tree_dot(ofstream &fout, int index) {
+	if (NULL == _root)
+		return;
+	fout << "digraph dot{" << endl;
+	vector<Node> &list = _compress_table[index];
+	for (size_t s = 0; s < list.size(); ++s) {
+		fout << list[s]._state << "[shape="
+				<< (list[s]._accept_rules.empty() ? "circle" : "doublecircle")
+				<< ",label=\"";
+		if (!list[s]._accept_rules.empty()) {
+			fout << "/";
+			for (vector<size_t>::iterator it = list[s]._accept_rules.begin();
+					it != list[s]._accept_rules.end() - 1; ++it)
+				fout << *it << ",";
+			fout << *(list[s]._accept_rules.end() - 1);
+		}
+		fout << "\n" << list[s]._src_code << "\n" << list[s]._dst_code << "("
+				<< list[s]._dst << ")" << "\"];" << endl;
+	}
+
+	for (size_t s = 0; s < list.size(); ++s)
+		fout << list[s]._state << " -> " << list[list[s]._parent_index]._state
+				<< ";" << endl;
+	fout << "}";
+}
+
+void Compress::tcam_parameters_init(size_t block_size, uint32_t bits,
+		uint32_t block_num) {
+	tcam_parameters.number_of_rows = block_size * block_num;
+	tcam_parameters.number_of_column_bits = bits;
+	tcam_parameters.number_of_subbanks = block_num;
+
+}
+
+void Compress::print_original_tcam(ofstream &fout, size_t block_size,
+		uint32_t bits, uint32_t block_num) {
+	_block_size = block_size;
+	this->tcam_parameters_init(_block_size, bits, block_num);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+	fout << endl << _block_size << "\t" << tcam_search_delay.max_delay * 1e9
+			<< "\t" << tcam_search_power.total_power * 1e9 << "\t" << block_num;
+}
+
+void Compress::print_charater_index_tcam(ofstream &fout, size_t block_size,
+		uint32_t bits, uint32_t block_num) {
+	_block_size = block_size;
+	this->tcam_parameters_init(_block_size, bits, block_num);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+
+	//print data blocks
+	fout << endl << _block_size << "\t" << tcam_search_delay.max_delay * 1e9
+			<< "\t" << tcam_search_power.total_power * 1e9 << "\t" << block_num;
+
+	block_num = ceil(256 * 1.0 / _block_size);
+	this->tcam_parameters_init(_block_size, bits, block_num);
+
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+
+	fout << "\t" << tcam_search_delay.max_delay * 1e9 << "\t"
+			<< tcam_search_power.total_power * 1e9 << "\t" << block_num;
+}
+
+size_t Compress::calculate_compress_tree_child_num(size_t i, size_t j) {
+
+	size_t ret_val = 1;
+	_compress_table[i][j]._is_block_root = false;
+	for (size_t child : _compress_table[i][j]._child_index) {
+		ret_val += calculate_compress_tree_child_num(i, child);
+	}
+	_compress_table[i][j]._child_count = ret_val;
+	return ret_val;
+}
+void Compress::state_split_tree() {
+	for (size_t i = 0; i < _compress_table.size(); ++i) {
+		calculate_compress_tree_child_num(i, _compress_table[i].size() - 1);
+	}
+}
+
+void Compress::state_split_block(size_t block_size) {
+
+	_ascii_blocks.clear();
+	vector<size_t> temp;
+	size_t block_index = 0;
+
+	for (size_t i = 0; i < _compress_table.size(); ++i) {
+		temp.clear();
+		do {
+			block_index = get_state_split_block(i,
+					_compress_table[i].size() - 1, block_size);
+			temp.push_back(block_index);
+		} while (block_index != _compress_table[i].size() - 1);
+		_ascii_blocks.push_back(temp);
+	}
+
+}
+
+size_t Compress::get_state_split_block(size_t i, size_t j, size_t block_size) {
+
+	if ((_compress_table[i][j]._child_count <= block_size)
+			&& !(_compress_table[i][j]._is_block_root)) {
+
+		_compress_table[i][j]._is_block_root = true;
+		if (j != _compress_table[i].size() - 1) {
+
+			for (size_t temp = _compress_table[i][j]._parent_index;
+					temp < _compress_table[i].size() - 1; temp =
+							_compress_table[i][temp]._parent_index) {
+				_compress_table[i][temp]._child_count -=
+						_compress_table[i][j]._child_count;
+			}
+
+			_compress_table[i][_compress_table[i].size() - 1]._child_count -=
+					_compress_table[i][j]._child_count;
+		}
+		return j;
+	}
+
+	vector<size_t> index_temp;
+
+	for (size_t child : _compress_table[i][j]._child_index) {
+		if (!(_compress_table[i][child]._is_block_root)) {
+			index_temp.push_back(child);
+		}
+	}
+	if (index_temp.empty())
+		return j;
+
+	size_t max_index = index_temp[0];
+	for (size_t temp = 1; temp < index_temp.size(); ++temp) {
+		if (_compress_table[i][index_temp[temp]]._child_count
+				> _compress_table[i][max_index]._child_count) {
+			max_index = index_temp[temp];
+		}
+	}
+	return get_state_split_block(i, max_index, block_size);
+}
+
+void Compress::print_transition_merge_tcam(ofstream &fout, size_t block_size,
+		vector<vector<size_t> > &header) {
+
+	_block_size = block_size;
+	Tcam_Node tcam_Node_array[256];
+
+	size_t transition_rows = 0, transition_block_num = 0, bits =
+			_compress_table[0][0]._dst_code.size(), total_block_num = 0,
+			avg_block_num = 0;
+	float ns = 0.0, nj = 0.0, total_ns = 0.0, total_nj = 0.0, avg_ns = 0.0,
+			avg_nj = 0.0;
+
+	for (size_t index = 0; index < header.size(); ++index) {
+		transition_rows = this->_compress_table[index].size();
+		transition_block_num = ceil(transition_rows * 1.0 / _block_size);
+
+		this->tcam_parameters_init(_block_size, bits, transition_block_num);
+		calculate_tcam_power(tcam_parameters, &tcam_search_power,
+				&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+				&tcam_search_delay);
+		ns = tcam_search_delay.max_delay * 1e9;
+		nj = tcam_search_power.total_power * 1e9;
+		total_ns += ns * header[index].size();
+		total_nj += nj * header[index].size();
+		total_block_num += transition_block_num * header[index].size();
+
+		for (size_t item : header[index]) {
+			tcam_Node_array[item]._block_size = _block_size;
+			tcam_Node_array[item]._block_num = transition_block_num;
+			tcam_Node_array[item]._bits = bits;
+			tcam_Node_array[item]._ns = ns;
+			tcam_Node_array[item]._nj = nj;
+		}
+	}
+	avg_ns = total_ns / 256;
+	avg_nj = total_nj / 256;
+	avg_block_num = ceil(total_block_num * 1.0 / 256);
+	stable_sort(tcam_Node_array, tcam_Node_array + 256, TcamNodeComp);
+	//print avg
+	fout << endl << _block_size << "\t" << avg_ns << "\t" << avg_nj << "\t"
+			<< avg_block_num << "\t";
+	//print max
+	fout << tcam_Node_array[255]._ns << "\t" << tcam_Node_array[255]._nj << "\t"
+			<< tcam_Node_array[255]._block_num << "\t";
+
+	//print min
+	fout << tcam_Node_array[0]._ns << "\t" << tcam_Node_array[0]._nj << "\t"
+			<< tcam_Node_array[0]._block_num << "\t";
+
+	//print mid
+
+	fout << (tcam_Node_array[127]._ns + tcam_Node_array[128]._ns) / 2 << "\t"
+			<< (tcam_Node_array[127]._nj + tcam_Node_array[128]._nj) / 2 << "\t"
+			<< tcam_Node_array[127]._block_num << "\t";
+
+}
+
+void Compress::print_state_split_tcam(ofstream &tcam_fout, ofstream &fout,
+		size_t block_size, vector<vector<size_t> > &header) {
+
+	this->state_split_tree();
+
+	this->state_split_block(block_size);
+
+	tcam_fout << "# Index TCAM Table" << endl;
+	tcam_fout << "# <#Block>" << endl;
+	tcam_fout << ceil(256 * 1.0 / block_size) << endl;
+	tcam_fout << "# Block <#Num>";
+	tcam_fout
+			<< "# TCAM Part (Input Character), SRAM Part (A list of Block IDs)"
+			<< endl;
+
+	//print index blocks
+	AsciiNode asciiIndex[256];
+
+	size_t block_count = 0;
+	for (size_t i = 0; i < header.size(); ++i) {
+		for (size_t j = 0; j < header[i].size(); ++j) {
+			asciiIndex[header[i][j]]._ascii_blocks_index = i;
+			asciiIndex[header[i][j]]._ascii = header[i][j];
+			asciiIndex[header[i][j]]._ascii_code = state_convert_code(
+					header[i][j], 8);
+			for (size_t block_it = 0; block_it < _ascii_blocks[i].size();
+					++block_it) {
+				asciiIndex[header[i][j]]._index.push_back(
+						block_count + block_it);
+			}
+		}
+		block_count += _ascii_blocks[i].size();
+	}
+
+	vector<pair<size_t, size_t> > state_split_index_blocks;
+	size_t ss_count = 0, ss_temp = 0;
+	for (size_t i = 0; i < _ascii_blocks.size(); ++i) {
+		ss_temp = ceil(_ascii_blocks[i].size() * 1.0 / block_size);
+
+		state_split_index_blocks.push_back(
+				make_pair(ss_count, ss_count + ss_temp));
+
+		ss_count += ss_temp;
+	}
+
+	size_t flag = 0, flag_count = 0;
+	size_t character_index_start = 0, character_index_end = 0;
+	for (size_t i = 0; i < 256; ++i) {
+		if (i == flag) {
+			flag += block_size;
+			tcam_fout << "# Block " << flag_count++ << endl;
+		}
+		character_index_start =
+				state_split_index_blocks[asciiIndex[i]._ascii_blocks_index].first;
+
+		character_index_end =
+				state_split_index_blocks[asciiIndex[i]._ascii_blocks_index].second;
+		tcam_fout << asciiIndex[i]._ascii_code << ", (";
+
+		for (size_t m = character_index_start; m < character_index_end - 1;
+				++m) {
+			tcam_fout << m << ", ";
+		}
+
+		tcam_fout << character_index_end - 1;
+		tcam_fout << ")" << endl;
+	}
+
+	//print data TCAM blocks
+	tcam_fout << "# Data TCAM Table" << endl;
+	tcam_fout << "# <#Block>" << endl;
+
+	size_t ss_block_num =
+			state_split_index_blocks[state_split_index_blocks.size() - 1].second;
+	tcam_fout << block_count + ss_block_num << endl;
+	tcam_fout << "# Block <#Num>" << endl;
+	tcam_fout
+			<< "# TCAM Part (Src State ID), SRAM Part (Flag1, Dst State ID or Block ID, Flag2)"
+			<< endl;
+	tcam_fout
+			<< "# Flag1 is one bit (0 or 1) that denotes that the next is a dst state ID or a block ID "
+			<< endl;
+	tcam_fout
+			<< "# Flag2 is a list of integer values (0, 1, 2...) that denote the index of the matching RegEx patterns"
+			<< endl;
+	flag = 0;
+	flag_count = 0;
+
+	size_t total_blocks_count = ss_block_num;
+
+	for (size_t i = 0; i < state_split_index_blocks.size(); ++i) {
+
+		flag = 0;
+		for (size_t j = 0; j < _ascii_blocks[i].size(); ++j) {
+			if (j == flag) {
+				flag += block_size;
+				tcam_fout << "# Block " << flag_count++ << endl;
+			}
+			tcam_fout << _compress_table[i][_ascii_blocks[i][j]]._src_code
+					<< ", 1, " << total_blocks_count++ << ", (0)" << endl;
+		}
+
+	}
+	for (size_t i = 0; i < _ascii_blocks.size(); ++i) {
+		for (size_t j = 0; j < _ascii_blocks[i].size(); ++j) {
+			tcam_fout << "# Block " << flag_count++ << endl;
+			print_state_split_block_detail(tcam_fout, i, _ascii_blocks[i][j],
+					_ascii_blocks[i][j]);
+		}
+	}
+
+	//print character index tcam
+	size_t bits = _compress_table[0][0]._dst_code.size();
+	size_t character_block_num = ceil(256 * 1.0 / _block_size);
+	float ns = 0.0, nj = 0.0;
+	this->tcam_parameters_init(_block_size, bits, character_block_num);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+	ns = tcam_search_delay.max_delay * 1e9;
+	nj = tcam_search_power.total_power * 1e9;
+	fout << ns << "\t" << nj << "\t";
+
+	Tcam_Node ss_block_array[256];
+	size_t ss_index_block_num = 0;
+	size_t total_block_num = 0;
+	float total_ns = 0.0, total_nj = 0.0;
+	for (size_t i = 0; i < header.size(); ++i) {
+		ss_index_block_num = state_split_index_blocks[i].second
+				- state_split_index_blocks[i].first;
+		tcam_parameters_init(_block_size, bits, ss_index_block_num);
+		calculate_tcam_power(tcam_parameters, &tcam_search_power,
+				&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+				&tcam_search_delay);
+		ns = tcam_search_delay.max_delay * 1e9;
+		nj = tcam_search_power.total_power * 1e9;
+
+		total_block_num += ss_index_block_num * header[i].size();
+		total_ns += ns * header[i].size();
+		total_nj += nj * header[i].size();
+		for (size_t j = 0; j < header[i].size(); ++j) {
+			ss_block_array[header[i][j]]._ns = ns;
+			ss_block_array[header[i][j]]._nj = nj;
+			ss_block_array[header[i][j]]._block_num = ss_index_block_num;
+			cout << header[i][j] << " -> " << ss_index_block_num;
+		}
+	}
+
+	stable_sort(ss_block_array, ss_block_array + 256, TcamNodeComp);
+	float avg_ns = total_ns / 256;
+	float avg_nj = total_nj / 256;
+	size_t avg_block = ceil(total_block_num * 1.0 / 256);
+
+	fout << avg_ns << "\t" << avg_nj << "\t" << avg_block << "\t";
+
+	fout << ss_block_array[255]._ns << "\t" << ss_block_array[255]._nj << "\t"
+			<< ss_block_array[255]._block_num << "\t";
+
+	fout << ss_block_array[0]._ns << "\t" << ss_block_array[0]._nj << "\t"
+			<< ss_block_array[0]._block_num << "\t";
+
+	fout << (ss_block_array[127]._ns + ss_block_array[128]._ns) / 2 << "\t"
+			<< (ss_block_array[127]._nj + ss_block_array[128]._nj) / 2 << "\t"
+			<< ss_block_array[127]._block_num << "\t";
+
+	tcam_parameters_init(_block_size, bits, 1);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+
+	ns = tcam_search_delay.max_delay * 1e9;
+	nj = tcam_search_power.total_power * 1e9;
+	fout << ns << "\t" << nj << "\t" << 1 << endl;
+}
+
+void Compress::print_state_split_block_detail(ofstream &fout, const size_t i,
+		const size_t j, const size_t root) {
+
+	if (root != j) {
+		if (_compress_table[i][j]._is_block_root)
+			return;
+	}
+
+	for (size_t child : _compress_table[i][j]._child_index) {
+		print_state_split_block_detail(fout, i, child, root);
+	}
+
+	fout << _compress_table[i][j]._src_code << ", 0, "
+			<< _compress_table[i][j]._dst_code << ", (";
+	if (_compress_table[i][j]._accept_rules.empty())
+		fout << 0;
+	else {
+		for (size_t m = 0; m < _compress_table[i][j]._accept_rules.size() - 1;
+				++m) {
+			fout << _compress_table[i][j]._accept_rules[m] << ", ";
+		}
+		fout
+				<< _compress_table[i][j]._accept_rules[_compress_table[i][j]._accept_rules.size()
+						- 1];
+	}
+	fout << ")" << endl;
+}
+
+string Compress::state_convert_code(size_t s, const int bits) const {
+	string ret;
+	int i, j;
+	for (i = bits - 1, j = 0; i >= 0; i--, j++) {
+		if (0 == ((s >> i) & 0x01)) {
+			ret.append("0");
+		} else {
+			ret.append("1");
+		}
+	}
+	return ret;
+}
+

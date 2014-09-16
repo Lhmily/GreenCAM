@@ -328,6 +328,9 @@ void handle(DFA *dfa) {
 	transtable.character_compress();
 	transtable.print_tree_dot();
 	transtable.prefix_compress();
+
 	transtable.print_compress_table();
+	transtable.print_rebuild_tree_dot();
+	transtable.print();
 }
 
