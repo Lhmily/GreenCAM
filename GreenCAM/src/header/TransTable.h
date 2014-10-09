@@ -21,6 +21,10 @@ private:
 	size_t _state_size;
 	vector<vector<size_t> > _header;
 
+	state_t **_table_2;
+
+	size_t _column_2_size;
+
 public:
 	TransTable(DFA *dfa);
 	virtual ~TransTable();
@@ -37,8 +41,20 @@ public:
 
 	void print();
 
+	void generate_table_2();
+
+	void print_table_2();
+
+	void prefix_compress_2();
+
+	void print_compress_table_2();
+
+	void print_2();
+
 private:
 	void rebuild_tree(vector<Node> &list);
+
+	void compress_one_table(Node *compress_temp, vector<Node> &ret);
 };
 
 #endif /* TRANSTABLE_H_ */

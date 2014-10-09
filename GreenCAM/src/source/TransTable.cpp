@@ -14,10 +14,18 @@ TransTable::TransTable(DFA *dfa) :
 	this->_compress.init(_dfa);
 	_table = _dfa->get_state_table();
 	this->_state_size = _dfa->size();
+	_table_2 = NULL;
 }
 
 TransTable::~TransTable() {
 	// TODO Auto-generated destructor stub
+	if (NULL != _table_2) {
+		for (size_t i = 0; i < _column_2_size; ++i) {
+			delete[] _table_2[i];
+		}
+		delete[] _table_2;
+		_table_2 = NULL;
+	}
 }
 
 void TransTable::build_encode_tree() {
@@ -253,4 +261,117 @@ void TransTable::print() {
 	Character_Index_fout.close();
 	Trans_Merge_fout.close();
 	State_split_fout.close();
+}
+
+void TransTable::generate_table_2() {
+
+	size_t column_1_size = _header.size();
+
+	_column_2_size = column_1_size * column_1_size;
+
+	_table_2 = new state_t*[_column_2_size];
+
+	for (size_t i = 0; i < _column_2_size; ++i) {
+		_table_2[i] = new state_t[_state_size];
+	}
+
+	size_t ascii_1 = 0, ascii_2 = 0, state_temp = 0;
+
+	for (size_t i = 0; i < column_1_size; ++i) {
+		ascii_1 = _header[i][0];
+		for (size_t j = 0; j < column_1_size; ++j) {
+			ascii_2 = _header[j][0];
+			for (size_t index = 0; index < _state_size; ++index) {
+				state_temp = _table[index][ascii_1];
+				_table_2[column_1_size * i + j][index] =
+						_table[state_temp][ascii_2];
+			}
+		}
+	}
+}
+void TransTable::print_table_2() {
+	ofstream fout;
+	fout.open("table_2.txt");
+	for (size_t i = 0; i < _state_size; ++i) {
+		for (size_t j = 0; j < _column_2_size; ++j) {
+			fout << _table_2[j][i] << "\t";
+		}
+		fout << endl;
+	}
+	fout.close();
+}
+void TransTable::prefix_compress_2() {
+
+	Node *compress_temp = new Node[_state_size];
+	vector<Node> addElement;
+	for (size_t it = 0; it < _column_2_size; ++it) {
+
+		for (size_t i = 0; i < _state_size; ++i) {
+			compress_temp[i]._state = i;
+			compress_temp[i]._dst = _table_2[it][i];
+			compress_temp[i]._src_code = _compress._tree[i]._src_code;
+			compress_temp[i]._dst_code =
+					_compress._tree[compress_temp[i]._dst]._dst_code;
+			compress_temp[i]._order = _compress._tree[i]._order;
+			compress_temp[i]._accept_rules = _compress._tree[i]._accept_rules;
+		}
+		stable_sort(compress_temp, compress_temp + _state_size, NodeDstComp);
+
+		addElement.clear();
+		compress_one_table(compress_temp, addElement);
+		_compress._compress_table_2.push_back(addElement);
+	}
+
+	delete[] compress_temp;
+}
+
+void TransTable::compress_one_table(Node *compress_temp, vector<Node> &ret) {
+	vector<size_t> roots;
+	vector<size_t>::iterator roots_it;
+	size_t index = 0, end = 0, cur_dst = 0;
+
+	while (index < _state_size) {
+		cur_dst = compress_temp[index]._dst;
+		end = index + 1;
+		while ((end < _state_size) && (compress_temp[end]._dst == cur_dst))
+			++end;
+
+		roots.clear();
+		roots.push_back(index++);
+		size_t parent;
+		while (index < end) {
+			parent = _state_size + 1;
+			for (roots_it = roots.begin(); roots_it != roots.end();
+					++roots_it) {
+
+				parent = _compress.isCover(compress_temp[*roots_it]._state,
+						compress_temp[index]._state);
+
+				if (parent != _state_size + 1)
+					break;
+			}
+			if (parent == _state_size + 1)
+				roots.push_back(index++);
+			else if (parent == compress_temp[index]._state)
+				roots.erase(roots_it);
+			else
+				++index;
+		}
+
+		for (roots_it = roots.begin(); roots_it != roots.end(); ++roots_it) {
+			ret.push_back(compress_temp[*roots_it]);
+		}
+
+	}
+	stable_sort(ret.begin(), ret.end(), NodeOrderComp);
+	rebuild_tree(ret);
+}
+void TransTable::print_compress_table_2() {
+	ofstream fout;
+	fout.open("prefix_compress_table_2.txt");
+	_compress.print_compress_table_2(fout);
+	fout.close();
+}
+void TransTable::print_2() {
+
 }

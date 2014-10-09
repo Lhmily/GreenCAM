@@ -576,7 +576,7 @@ void Compress::print_state_split_tcam(ofstream &tcam_fout, ofstream &fout,
 			ss_block_array[header[i][j]]._ns = ns;
 			ss_block_array[header[i][j]]._nj = nj;
 			ss_block_array[header[i][j]]._block_num = ss_index_block_num;
-			cout << header[i][j] << " -> " << ss_index_block_num;
+			//cout << header[i][j] << " -> " << ss_index_block_num;
 		}
 	}
 
@@ -648,3 +648,18 @@ string Compress::state_convert_code(size_t s, const int bits) const {
 	return ret;
 }
 
+void Compress::print_compress_table_2(ofstream &fout) {
+	vector<vector<Node> >::iterator table_it = _compress_table_2.begin();
+	vector<Node>::iterator code_it;
+
+	for (; table_it != _compress_table_2.end(); ++table_it) {
+		fout << "------------------------------------------------" << endl;
+		fout << "Transition entries: " << table_it->size() << endl << endl;
+		for (code_it = table_it->begin(); code_it != table_it->end();
+				++code_it) {
+			fout << code_it->_src_code << " -> " << code_it->_dst_code << "("
+					<< code_it->_dst << ")" << endl;
+		}
+
+	}
+}

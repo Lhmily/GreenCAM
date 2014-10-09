@@ -47,6 +47,8 @@ private:
 	struct write_power tcam_write_power;
 	struct search_delay tcam_search_delay;
 
+	vector<vector<Node> > _compress_table_2;
+
 private:
 	size_t calculate_code_mask(Node *node);
 	void reorder_child(Node *node);
@@ -86,6 +88,8 @@ public:
 	void print_compress_tree_dot(ofstream &fout, int index);
 
 	void print_compress_table(ofstream &fout, vector<vector<size_t> > &header);
+
+	void print_compress_table_2(ofstream &fout);
 
 	void print_original_tcam(ofstream &fout, size_t block_size, uint32_t bits,
 			uint32_t block_num);
