@@ -150,6 +150,7 @@ void TransTable::rebuild_tree(vector<Node> &list) {
 	size_t parent = 0;
 
 	for (size_t i = 0; i < list.size(); ++i) {
+		list[i]._parent_index = i;
 		for (size_t j = i + 1; j < list.size(); ++j) {
 			parent = this->_compress.isCover(list[i]._state, list[j]._state);
 			if (parent == list[j]._state) {
@@ -225,15 +226,17 @@ void TransTable::print() {
 	Trans_Merge_fout << "#bits: "
 			<< _compress._compress_table[0][0]._dst_code.size() << endl << endl;
 	Trans_Merge_fout
-			<< "block_size	avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	#entries	#total_block";
+			<< "block_size	avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	#total_block";
 
 	//print state_split
 	State_split_fout.open(performances[3].c_str());
 	char buffer[20];
+	State_split_fout
+			<< "block_size ns(character_index) nj(character_index) avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	ns(one block)	nj(one block)	#total_block";
 
 	for (int i = 0; i < 8; ++i) {
 		block_size = 32 * pow(2, i);
-		sprintf(buffer, "%s%d%s", "TCAM_", block_size, ".txt");
+		sprintf(buffer, "TCAM_%d.txt", block_size);
 		TCAM_fout.open(buffer);
 
 		original_block_num = ceil(original_rows * 1.0 / block_size);
@@ -246,7 +249,7 @@ void TransTable::print() {
 
 		//print character_index TCAM
 		_compress.print_charater_index_tcam(Character_Index_fout, block_size,
-				character_index_bits, character_index_block_num);
+				character_index_bits, character_index_block_num, 1);
 
 		//print transition_merge TCAM
 		_compress.print_transition_merge_tcam(Trans_Merge_fout, block_size,
@@ -369,9 +372,116 @@ void TransTable::compress_one_table(Node *compress_temp, vector<Node> &ret) {
 void TransTable::print_compress_table_2() {
 	ofstream fout;
 	fout.open("prefix_compress_table_2.txt");
-	_compress.print_compress_table_2(fout);
+	_compress.print_compress_table_2(fout, this->_header);
 	fout.close();
 }
 void TransTable::print_2() {
 
+	size_t block_size = 32;
+
+	this->generate_header_2();
+	cout << endl << "head_1 size is " << this->_header.size() << endl;
+	cout << "head_2 size is " << this->_header_2.size() << endl;
+	cout << "table_2 size is " << this->_compress._compress_table_2.size()
+			<< endl;
+
+	string performances[] = { "Performance_DFA_2.txt",
+			"Performance_Character_Index_2.txt", "Performance_TranMerg_2.txt",
+			"Performance_StateSplit_2.txt" };
+	ofstream DFA_fout, Character_Index_fout, Trans_Merge_fout, State_split_fout,
+			TCAM_fout;
+
+	//print header of DFA_fout
+	DFA_fout.open(performances[0].c_str());
+	uint32_t original_rows = _state_size * 256 * 256;
+	uint32_t original_bits = ceil(log(_state_size) / log(2)) + 16;
+	uint32_t original_block_num = 0;
+	DFA_fout << "#Total Entries: " << original_rows << endl;
+	DFA_fout << "#bits: " << original_bits << endl << endl;
+	DFA_fout << "block_size\tns\tnj\t#block_num";
+
+	//print header of Character_Index_fout
+	Character_Index_fout.open(performances[1].c_str());
+	uint32_t character_index_rows = _state_size;
+	uint32_t character_index_bits = original_bits - 16;
+	uint32_t character_index_block_num = 0;
+	Character_Index_fout << "#Total Entries: "
+			<< character_index_rows * _header.size() * _header.size() << endl;
+	Character_Index_fout << "#bits: " << character_index_bits << endl;
+	Character_Index_fout << "#Index Entries: "
+			<< _header.size() * _header.size() << endl;
+	Character_Index_fout << "#Index table bits:" << 16 << endl << endl;
+	Character_Index_fout
+			<< "block_size\tns\tnj\t#block_num\tindex(ns)\tindex(nj)\tindex(block_num)";
+
+	//print header of Trans_Merge_fout
+	Trans_Merge_fout.open(performances[2].c_str());
+	size_t trans_merge_rows = 0;
+	for (vector<Node> item : _compress._compress_table_2) {
+		trans_merge_rows += item.size();
+	}
+	Trans_Merge_fout << "#Total Entries: " << trans_merge_rows << endl;
+	Trans_Merge_fout << "#bits: "
+			<< _compress._compress_table[0][0]._dst_code.size() << endl << endl;
+	Trans_Merge_fout
+			<< "block_size	avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	#total_block";
+
+	//print state_split
+	State_split_fout.open(performances[3].c_str());
+	char buffer[20];
+
+	State_split_fout
+			<< "block_size ns(character_index) nj(character_index) avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	ns(one block)	nj(one block)	#total_block";
+
+	for (int i = 0; i < 8; ++i) {
+		block_size = 32 * pow(2, i);
+		sprintf(buffer, "TCAM_%d_2.txt", block_size);
+		TCAM_fout.open(buffer);
+
+		original_block_num = ceil(original_rows * 1.0 / block_size);
+		character_index_block_num = ceil(
+				character_index_rows * 1.0 / block_size);
+
+		//print original DFA TCAM
+		_compress.print_original_tcam(DFA_fout, block_size, original_bits,
+				original_block_num);
+
+		//print character_index TCAM
+		_compress.print_charater_index_tcam(Character_Index_fout, block_size,
+				character_index_bits, character_index_block_num, 2);
+
+		//print transition_mergeTCAM
+		_compress.print_transition_merge_tcam_2(Trans_Merge_fout, block_size,
+				_header_2);
+
+		_compress.print_state_split_tcam_2(TCAM_fout, State_split_fout,
+				block_size, _header_2);
+
+		TCAM_fout.close();
+	}
+	DFA_fout.close();
+	Character_Index_fout.close();
+	Trans_Merge_fout.close();
+	State_split_fout.close();
+}
+void TransTable::generate_header_2() {
+	this->_header_2.clear();
+	vector<size_t> temp;
+	size_t index = 0;
+	size_t header_size = _header.size();
+	for (size_t i = 0; i < header_size; ++i) {
+
+		for (size_t j = 0; j < header_size; ++j) {
+
+			_header_2.push_back(temp);
+			for (size_t item : _header[i]) {
+				for (size_t jtem : _header[j]) {
+					index = item * 256 + jtem;
+					_header_2[i * header_size + j].push_back(index);
+
+				}
+			}
+
+		}
+	}
 }

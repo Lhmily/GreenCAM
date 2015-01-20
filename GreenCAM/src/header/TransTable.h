@@ -21,6 +21,8 @@ private:
 	size_t _state_size;
 	vector<vector<size_t> > _header;
 
+	vector<vector<size_t> > _header_2;
+
 	state_t **_table_2;
 
 	size_t _column_2_size;
@@ -55,6 +57,8 @@ private:
 	void rebuild_tree(vector<Node> &list);
 
 	void compress_one_table(Node *compress_temp, vector<Node> &ret);
+
+	void generate_header_2();
 };
 
 #endif /* TRANSTABLE_H_ */

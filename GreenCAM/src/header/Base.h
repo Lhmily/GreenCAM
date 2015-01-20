@@ -11,6 +11,12 @@
 #include "TcamNode.h"
 
 bool NodeDstComp(Node i, Node j);
+
 bool NodeOrderComp(Node i, Node j);
+
 bool TcamNodeComp(Tcam_Node i, Tcam_Node j);
+
+
+
+void recover_input_2_by_index(int index, char &first, char &second);
 #endif /* BASE_H_ */

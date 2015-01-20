@@ -48,6 +48,7 @@ private:
 	struct search_delay tcam_search_delay;
 
 	vector<vector<Node> > _compress_table_2;
+	vector<vector<size_t> > _ascii_blocks_2;
 
 private:
 	size_t calculate_code_mask(Node *node);
@@ -60,18 +61,23 @@ private:
 	void tcam_parameters_init(size_t block_size, uint32_t bits,
 			uint32_t block_num);
 
-	size_t calculate_compress_tree_child_num(size_t i, size_t j);
+	size_t calculate_compress_tree_child_num(size_t i, size_t j,
+			vector<vector<Node> > &compress_table);
 
-	size_t get_state_split_block(size_t i, size_t j, size_t block_size);
+	size_t get_state_split_block(size_t i, size_t j, size_t block_size,
+			vector<vector<Node> > &compress_table);
 
-	void state_split_tree();
+	void state_split_tree(vector<vector<Node> > &compress_table);
 
-	void state_split_block(size_t block_size);
+	void state_split_block(size_t block_size,
+			vector<vector<Node> > &compress_table,
+			vector<vector<size_t> > &ascii_blocks);
 
 	string state_convert_code(size_t s, const int bits) const;
 
 	void print_state_split_block_detail(ofstream &fout, const size_t i,
-			const size_t j, const size_t root);
+			const size_t j, const size_t root,
+			vector<vector<Node> > &compress_table);
 
 public:
 	Compress();
@@ -89,18 +95,25 @@ public:
 
 	void print_compress_table(ofstream &fout, vector<vector<size_t> > &header);
 
-	void print_compress_table_2(ofstream &fout);
+	void print_compress_table_2(ofstream &fout,
+			vector<vector<size_t> > &header);
 
 	void print_original_tcam(ofstream &fout, size_t block_size, uint32_t bits,
 			uint32_t block_num);
 
 	void print_charater_index_tcam(ofstream &fout, size_t block_size,
-			uint32_t bits, uint32_t block_num);
+			uint32_t bits, uint32_t block_num, int step);
 
 	void print_transition_merge_tcam(ofstream &fout, size_t block_size,
 			vector<vector<size_t> > &header);
 
 	void print_state_split_tcam(ofstream &tcam_fout, ofstream &fout,
+			size_t block_size, vector<vector<size_t> > &header);
+
+	void print_transition_merge_tcam_2(ofstream &fout, size_t block_size,
+			vector<vector<size_t> > &header);
+
+	void print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
 			size_t block_size, vector<vector<size_t> > &header);
 
 	size_t isCover(size_t state_1, size_t state_2);

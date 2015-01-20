@@ -17,3 +17,9 @@ bool NodeOrderComp(Node i, Node j) {
 bool TcamNodeComp(Tcam_Node i, Tcam_Node j) {
 	return i.getNj() < j.getNj();
 }
+
+
+void recover_input_2_by_index(int index, char &first, char &second) {
+	second = index % 256;
+	first = index / 256;
+}
