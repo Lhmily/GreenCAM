@@ -79,6 +79,24 @@ private:
 			const size_t j, const size_t root,
 			vector<vector<Node> > &compress_table);
 
+	size_t generate_asciiIndex_2(vector<vector<size_t> > &header,
+			vector<AsciiNode> &asciiIndex);
+
+	void print_index_tcam_table_header(ofstream &tcam_fout,
+			size_t index_block_num);
+
+	void print_data_tcam_table_header(ofstream &tcam_fout,
+			size_t data_block_num);
+
+	void generate_ascii_star(vector<AsciiNode> &asciiIndex,
+			vector<AsciiNode> &asciiStar,
+			vector<pair<size_t, size_t> > &state_split_index_blocks,
+			bool is_reverse);
+
+	void get_state_split_index_blocks(
+			vector<pair<size_t, size_t> > &state_split_index_blocks,
+			size_t block_size);
+
 public:
 	Compress();
 	virtual ~Compress();
@@ -113,7 +131,10 @@ public:
 	void print_transition_merge_tcam_2(ofstream &fout, size_t block_size,
 			vector<vector<size_t> > &header);
 
-	void print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
+	void print_split_tcam_detail_2(ofstream &tcam_fout, ofstream &fout,
+			size_t block_size, vector<vector<size_t> > &header);
+
+	void print_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
 			size_t block_size, vector<vector<size_t> > &header);
 
 	size_t isCover(size_t state_1, size_t state_2);

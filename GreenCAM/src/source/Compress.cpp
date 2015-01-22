@@ -452,13 +452,9 @@ void Compress::print_state_split_tcam(ofstream &tcam_fout, ofstream &fout,
 
 	this->state_split_block(block_size, _compress_table, _ascii_blocks);
 
-	tcam_fout << "# Index TCAM Table" << endl;
-	tcam_fout << "# <#Block>" << endl;
-	tcam_fout << ceil(256 * 1.0 / block_size) << endl;
-	tcam_fout << "# Block <#Num>";
-	tcam_fout
-			<< "# TCAM Part (Input Character), SRAM Part (A list of Block IDs)"
-			<< endl;
+	size_t index_block_num = ceil(256 * 1.0 / block_size);
+
+	this->print_index_tcam_table_header(tcam_fout, index_block_num);
 
 	//print index blocks
 	AsciiNode asciiIndex[256];
@@ -514,22 +510,10 @@ void Compress::print_state_split_tcam(ofstream &tcam_fout, ofstream &fout,
 	}
 
 	//print data TCAM blocks
-	tcam_fout << "# Data TCAM Table" << endl;
-	tcam_fout << "# <#Block>" << endl;
-
 	size_t ss_block_num =
 			state_split_index_blocks[state_split_index_blocks.size() - 1].second;
-	tcam_fout << block_count + ss_block_num << endl;
-	tcam_fout << "# Block <#Num>" << endl;
-	tcam_fout
-			<< "# TCAM Part (Src State ID), SRAM Part (Flag1, Dst State ID or Block ID, Flag2)"
-			<< endl;
-	tcam_fout
-			<< "# Flag1 is one bit (0 or 1) that denotes that the next is a dst state ID or a block ID "
-			<< endl;
-	tcam_fout
-			<< "# Flag2 is a list of integer values (0, 1, 2...) that denote the index of the matching RegEx patterns"
-			<< endl;
+	this->print_data_tcam_table_header(tcam_fout, block_count + ss_block_num);
+
 	flag = 0;
 	flag_count = 0;
 
@@ -750,48 +734,9 @@ void Compress::print_transition_merge_tcam_2(ofstream &fout, size_t block_size,
 	fout << total_block_num;
 }
 
-void Compress::print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
-		size_t block_size, vector<vector<size_t> > &header) {
-
-	this->state_split_tree(_compress_table_2);
-
-	this->state_split_block(block_size, _compress_table_2, _ascii_blocks_2);
-
-	tcam_fout << "# Index TCAM Table" << endl;
-	tcam_fout << "# <#Block>" << endl;
-	tcam_fout << ceil(65536 * 1.0 / block_size) << endl;
-	tcam_fout << "# Block <#Num>";
-	tcam_fout
-			<< "# TCAM Part (Input Character), SRAM Part (A list of Block IDs)"
-			<< endl;
-
-	//print index blocks
-	vector<AsciiNode> asciiIndex(65536);
-
-	size_t block_count = 0;
-	char first, second;
-	string first_str, second_str;
-	for (size_t i = 0; i < header.size(); ++i) {
-
-		for (size_t j = 0; j < header[i].size(); ++j) {
-
-			asciiIndex[header[i][j]]._ascii_blocks_index = i;
-			asciiIndex[header[i][j]]._ascii = header[i][j];
-			recover_input_2_by_index(header[i][j], first, second);
-			first_str = state_convert_code(first, 8);
-			second_str = state_convert_code(second, 8);
-
-			asciiIndex[header[i][j]]._ascii_code = first_str + second_str;
-			for (size_t block_it = 0; block_it < _ascii_blocks_2[i].size();
-					++block_it) {
-				asciiIndex[header[i][j]]._index.push_back(
-						block_count + block_it);
-			}
-		}
-		block_count += _ascii_blocks_2[i].size();
-	}
-
-	vector<pair<size_t, size_t> > state_split_index_blocks;
+void Compress::get_state_split_index_blocks(
+		vector<pair<size_t, size_t> > &state_split_index_blocks,
+		size_t block_size) {
 	size_t ss_count = 0, ss_temp = 0;
 	for (size_t i = 0; i < _ascii_blocks_2.size(); ++i) {
 		ss_temp = ceil(_ascii_blocks_2[i].size() * 1.0 / block_size);
@@ -801,6 +746,27 @@ void Compress::print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
 
 		ss_count += ss_temp;
 	}
+}
+
+void Compress::print_split_tcam_detail_2(ofstream &tcam_fout, ofstream &fout,
+		size_t block_size, vector<vector<size_t> > &header) {
+
+	this->state_split_tree(_compress_table_2);
+
+	this->state_split_block(block_size, _compress_table_2, _ascii_blocks_2);
+
+	size_t index_block_num = ceil(65536 * 1.0 / block_size);
+
+	this->print_index_tcam_table_header(tcam_fout, index_block_num);
+
+	//print index blocks
+	vector<AsciiNode> asciiIndex(65536);
+	size_t block_count = 0;
+
+	block_count = this->generate_asciiIndex_2(header, asciiIndex);
+
+	vector<pair<size_t, size_t> > state_split_index_blocks;
+	this->get_state_split_index_blocks(state_split_index_blocks, block_size);
 
 	size_t flag = 0, flag_count = 0;
 	size_t character_index_start = 0, character_index_end = 0;
@@ -826,22 +792,11 @@ void Compress::print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
 	}
 
 	//print data TCAM blocks
-	tcam_fout << "# Data TCAM Table" << endl;
-	tcam_fout << "# <#Block>" << endl;
 
 	size_t ss_block_num =
 			state_split_index_blocks[state_split_index_blocks.size() - 1].second;
-	tcam_fout << block_count + ss_block_num << endl;
-	tcam_fout << "# Block <#Num>" << endl;
-	tcam_fout
-			<< "# TCAM Part (Src State ID), SRAM Part (Flag1, Dst State ID or Block ID, Flag2)"
-			<< endl;
-	tcam_fout
-			<< "# Flag1 is one bit (0 or 1) that denotes that the next is a dst state ID or a block ID "
-			<< endl;
-	tcam_fout
-			<< "# Flag2 is a list of integer values (0, 1, 2...) that denote the index of the matching RegEx patterns"
-			<< endl;
+	this->print_data_tcam_table_header(tcam_fout, block_count + ss_block_num);
+
 	flag = 0;
 	flag_count = 0;
 
@@ -933,3 +888,289 @@ void Compress::print_state_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
 	fout << ns << "\t" << nj << "\t" << total_block_num;
 }
 
+void Compress::print_index_tcam_table_header(ofstream &tcam_fout,
+		size_t index_block_num) {
+	tcam_fout << "# Index TCAM Table" << endl;
+	tcam_fout << "# <#Block>" << endl;
+	tcam_fout << index_block_num << endl;
+	tcam_fout << "# Block <#Num>";
+	tcam_fout
+			<< "# TCAM Part (Input Character), SRAM Part (A list of Block IDs)"
+			<< endl;
+}
+
+void Compress::print_data_tcam_table_header(ofstream &tcam_fout,
+		size_t data_block_num) {
+	tcam_fout << "# Data TCAM Table" << endl;
+	tcam_fout << "# <#Block>" << endl;
+	tcam_fout << data_block_num << endl;
+	tcam_fout << "# Block <#Num>" << endl;
+	tcam_fout
+			<< "# TCAM Part (Src State ID), SRAM Part (Flag1, Dst State ID or Block ID, Flag2)"
+			<< endl;
+	tcam_fout
+			<< "# Flag1 is one bit (0 or 1) that denotes that the next is a dst state ID or a block ID "
+			<< endl;
+	tcam_fout
+			<< "# Flag2 is a list of integer values (0, 1, 2...) that denote the index of the matching RegEx patterns"
+			<< endl;
+}
+
+size_t Compress::generate_asciiIndex_2(vector<vector<size_t> > &header,
+		vector<AsciiNode> &asciiIndex) {
+	size_t block_count = 0;
+	char first, second;
+	string first_str, second_str;
+
+	for (size_t i = 0; i < header.size(); ++i) {
+
+		for (size_t j = 0; j < header[i].size(); ++j) {
+
+			asciiIndex[header[i][j]]._ascii_blocks_index = i;
+			asciiIndex[header[i][j]]._ascii = header[i][j];
+			recover_input_2_by_index(header[i][j], first, second);
+			first_str = state_convert_code(first, 8);
+			second_str = state_convert_code(second, 8);
+
+			asciiIndex[header[i][j]]._ascii_code = first_str + second_str;
+			for (size_t block_it = 0; block_it < _ascii_blocks_2[i].size();
+					++block_it) {
+				asciiIndex[header[i][j]]._index.push_back(
+						block_count + block_it);
+			}
+		}
+		block_count += _ascii_blocks_2[i].size();
+	}
+	return block_count;
+}
+
+/*
+ *
+ * size_t flag = 0, flag_count = 0;
+ size_t character_index_start = 0, character_index_end = 0;
+ for (size_t i = 0; i < 65536; ++i) {
+ if (i == flag) {
+ flag += block_size;
+ tcam_fout << "# Block " << flag_count++ << endl;
+ }
+ character_index_start =
+ state_split_index_blocks[asciiIndex[i]._ascii_blocks_index].first;
+
+ character_index_end =
+ state_split_index_blocks[asciiIndex[i]._ascii_blocks_index].second;
+ tcam_fout << asciiIndex[i]._ascii_code << ", (";
+
+ for (size_t m = character_index_start; m < character_index_end - 1;
+ ++m) {
+ tcam_fout << m << ", ";
+ }
+
+ tcam_fout << character_index_end - 1;
+ tcam_fout << ")" << endl;
+ }
+ */
+
+void Compress::generate_ascii_star(vector<AsciiNode> &asciiIndex,
+		vector<AsciiNode> &asciiStar,
+		vector<pair<size_t, size_t> > &state_split_index_blocks,
+		bool is_reverse) {
+
+	int index = 0;
+	bool is_exist = false;
+	size_t character_index_start = 0, character_index_end = 0;
+
+	for (int i = 0; i < 256; ++i) {
+		asciiStar[i]._ascii = i;
+		asciiStar[i]._ascii_code = this->state_convert_code(i, 8);
+		asciiStar[i]._ascii_blocks_index = i;
+		for (int j = 0; j < 256; ++j) {
+			index = is_reverse ? (i + 256 * j) : (i * 256 + j);
+
+			character_index_start =
+					state_split_index_blocks[asciiIndex[index]._ascii_blocks_index].first;
+
+			character_index_end =
+					state_split_index_blocks[asciiIndex[index]._ascii_blocks_index].second;
+
+			for (size_t item = character_index_start;
+					item < character_index_end; ++item) {
+				is_exist = false;
+				for (size_t jtem : asciiStar[i]._index) {
+					if (item == jtem) {
+						is_exist = true;
+						break;
+					}
+				}
+				if (!is_exist)
+					asciiStar[i]._index.push_back(item);
+			}
+
+		}
+		stable_sort(asciiStar[i]._index.begin(), asciiStar[i]._index.end());
+	}
+
+}
+
+void Compress::print_split_tcam_2(ofstream &tcam_fout, ofstream &fout,
+		size_t block_size, vector<vector<size_t> > &header) {
+
+	this->state_split_tree(_compress_table_2);
+
+	this->state_split_block(block_size, _compress_table_2, _ascii_blocks_2);
+
+	size_t index_block_num = ceil(65536 * 1.0 / block_size);
+
+	this->print_index_tcam_table_header(tcam_fout, index_block_num);
+
+	vector<AsciiNode> asciiIndex(65536);
+	size_t block_count = 0;
+
+	block_count = this->generate_asciiIndex_2(header, asciiIndex);
+
+	vector<pair<size_t, size_t> > state_split_index_blocks;
+
+	this->get_state_split_index_blocks(state_split_index_blocks, block_size);
+
+	vector<AsciiNode> asciiStar(256);
+	vector<AsciiNode> starAscii(256);
+	this->generate_ascii_star(asciiIndex, asciiStar, state_split_index_blocks,
+			false);
+	this->generate_ascii_star(asciiIndex, starAscii, state_split_index_blocks,
+			true);
+
+//print index blocks
+	tcam_fout << " ASCII *" << endl;
+	size_t flag = 0, flag_count = 0, index_size = 0;
+
+	for (size_t i = 0; i < 256; ++i) {
+		if (i == flag) {
+			flag += block_size;
+			tcam_fout << "# Block " << flag_count++ << endl;
+		}
+		tcam_fout << asciiStar[i]._ascii_code << ", (";
+		index_size = asciiStar[i]._index.size();
+		for (size_t j = 0; j < index_size - 1; ++j) {
+			tcam_fout << asciiStar[i]._index[j] << ",";
+		}
+		if (index_size >= 1)
+			tcam_fout << asciiStar[i]._index[index_size - 1] << ")" << endl;
+
+	}
+	tcam_fout
+			<< "/////////////////////////////////////////////////////////////////////"
+			<< endl << " * ASCII" << endl;
+	for (size_t i = 0, flag = 0; i < 256; ++i) {
+		if (i == flag) {
+			flag += block_size;
+			tcam_fout << "# Block " << flag_count++ << endl;
+		}
+		tcam_fout << starAscii[i]._ascii_code << ", (";
+		index_size = starAscii[i]._index.size();
+		for (size_t j = 0; j < index_size - 1; ++j) {
+			tcam_fout << starAscii[i]._index[j] << ",";
+		}
+		if (index_size >= 1)
+			tcam_fout << starAscii[i]._index[index_size - 1] << ")" << endl;
+
+	}
+
+	//print data TCAM blocks
+	size_t ss_block_num = 0, ascii_block_size = _ascii_blocks_2.size(),
+			size_temp = 0;
+	for (size_t i = 0; i < ascii_block_size; ++i) {
+		size_temp = _ascii_blocks_2[i].size();
+		ss_block_num += ceil(size_temp * 1.0 / block_size);
+	}
+
+	this->print_data_tcam_table_header(tcam_fout, block_count + ss_block_num);
+
+	flag = 0;
+	flag_count = 0;
+
+	size_t total_blocks_count = ss_block_num;
+
+	for (size_t i = 0; i < ss_block_num; ++i) {
+
+		flag = 0;
+		size_temp = _ascii_blocks_2[i].size();
+		for (size_t j = 0; j < size_temp; ++j) {
+			if (j == flag) {
+				flag += block_size;
+				tcam_fout << "# Block " << flag_count++ << endl;
+			}
+			tcam_fout << _compress_table_2[i][_ascii_blocks_2[i][j]]._src_code
+					<< ", 1, " << total_blocks_count++ << ", (0)" << endl;
+		}
+
+	}
+	for (size_t i = 0; i < _ascii_blocks_2.size(); ++i) {
+		for (size_t j = 0; j < _ascii_blocks_2[i].size(); ++j) {
+			tcam_fout << "# Block " << flag_count++ << endl;
+			print_state_split_block_detail(tcam_fout, i, _ascii_blocks_2[i][j],
+					_ascii_blocks_2[i][j], _compress_table_2);
+		}
+	}
+
+	//print character index tcam
+	fout << endl << block_size << "\t";
+	size_t bits = _compress_table_2[0][0]._dst_code.size();
+	size_t character_block_num = ceil(256 * 1.0 / _block_size);
+	float ns = 0.0, nj = 0.0;
+	this->tcam_parameters_init(_block_size, bits, character_block_num);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+	ns = tcam_search_delay.max_delay * 1e9;
+	nj = tcam_search_power.total_power * 1e9;
+	fout << ns << "\t" << nj << "\t";
+
+	vector<Tcam_Node> ss_block_array(65536);
+	size_t ss_index_block_num = 0;
+	size_t total_block_num = 0;
+	float total_ns = 0.0, total_nj = 0.0;
+	for (size_t i = 0; i < header.size(); ++i) {
+		ss_index_block_num = ceil(_ascii_blocks_2[i].size() * 1.0 / block_size);
+		tcam_parameters_init(_block_size, bits, ss_index_block_num);
+		calculate_tcam_power(tcam_parameters, &tcam_search_power,
+				&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+				&tcam_search_delay);
+		ns = tcam_search_delay.max_delay * 1e9;
+		nj = tcam_search_power.total_power * 1e9;
+
+		total_block_num += ss_index_block_num * header[i].size();
+		total_ns += ns * header[i].size();
+		total_nj += nj * header[i].size();
+		for (size_t j = 0; j < header[i].size(); ++j) {
+			ss_block_array[header[i][j]]._ns = ns;
+			ss_block_array[header[i][j]]._nj = nj;
+			ss_block_array[header[i][j]]._block_num = ss_index_block_num;
+			//cout << header[i][j] << " -> " << ss_index_block_num;
+		}
+	}
+
+	stable_sort(ss_block_array.begin(), ss_block_array.end(), TcamNodeComp);
+	float avg_ns = total_ns / 65536;
+	float avg_nj = total_nj / 65536;
+	size_t avg_block = ceil(total_block_num * 1.0 / 65536);
+
+	fout << avg_ns << "\t" << avg_nj << "\t" << avg_block << "\t";
+
+	fout << ss_block_array[65535]._ns << "\t" << ss_block_array[65535]._nj
+			<< "\t" << ss_block_array[65535]._block_num << "\t";
+
+	fout << ss_block_array[0]._ns << "\t" << ss_block_array[0]._nj << "\t"
+			<< ss_block_array[0]._block_num << "\t";
+
+	fout << (ss_block_array[32767]._ns + ss_block_array[32768]._ns) / 2 << "\t"
+			<< (ss_block_array[32767]._nj + ss_block_array[32768]._nj) / 2
+			<< "\t" << ss_block_array[32767]._block_num << "\t";
+
+	tcam_parameters_init(_block_size, bits, 1);
+	calculate_tcam_power(tcam_parameters, &tcam_search_power,
+			&tcam_leakage_power, &tcam_write_power, &tcam_read_power,
+			&tcam_search_delay);
+
+	ns = tcam_search_delay.max_delay * 1e9;
+	nj = tcam_search_power.total_power * 1e9;
+	fout << ns << "\t" << nj << "\t" << total_block_num;
+}
