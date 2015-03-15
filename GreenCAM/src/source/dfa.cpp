@@ -1387,7 +1387,7 @@ void DFA::D2FA(int diameter, bool refined) {
 	 to 1 for big DFAs-DFAs leading to dense space reduction graphs.
 	 Multiple scans do affect the running time of the compression algorithm! */
 	for (int max = CSIZE; max > 0; max = max - DECREMENT) {
-		G = new wgraph(_size, 30000000);
+		G = new wgraph(_size, 300000000);
 		for (state_t s = 0; s < _size - 1; s++) {
 			for (state_t t = s + 1; t < _size; t++) {
 				int common = 0;

@@ -64,8 +64,8 @@ private:
 	size_t calculate_compress_tree_child_num(size_t i, size_t j,
 			vector<vector<Node> > &compress_table);
 
-	size_t get_state_split_block(size_t i, size_t j, size_t block_size,
-			vector<vector<Node> > &compress_table);
+	size_t get_state_split_block(size_t j, size_t block_size,
+			vector<Node> &compress_table);
 
 	void state_split_tree(vector<vector<Node> > &compress_table);
 
@@ -75,9 +75,8 @@ private:
 
 	string state_convert_code(size_t s, const int bits) const;
 
-	void print_state_split_block_detail(ofstream &fout, const size_t i,
-			const size_t j, const size_t root,
-			vector<vector<Node> > &compress_table);
+	void print_state_split_block_detail(ofstream &fout, const size_t j,
+			const size_t root, vector<Node> &compress_table);
 
 	size_t generate_asciiIndex_2(vector<vector<size_t> > &header,
 			vector<AsciiNode> &asciiIndex);
@@ -96,6 +95,8 @@ private:
 	void get_state_split_index_blocks(
 			vector<pair<size_t, size_t> > &state_split_index_blocks,
 			size_t block_size);
+
+
 
 public:
 	Compress();

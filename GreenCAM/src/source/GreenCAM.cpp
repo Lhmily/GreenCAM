@@ -329,15 +329,15 @@ void handle(DFA *dfa) {
 	//transtable.print_tree_dot();
 	transtable.prefix_compress();
 
-	transtable.print_compress_table();
+	//transtable.print_compress_table();
 	//transtable.print_rebuild_tree_dot();
 	transtable.print();
 
 	transtable.generate_table_2();
-	transtable.print_table_2();
+	//transtable.print_table_2();
 
 	transtable.prefix_compress_2();
-	transtable.print_compress_table_2();
+	//transtable.print_compress_table_2();
 
 	transtable.print_2();
 

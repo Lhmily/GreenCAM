@@ -57,7 +57,7 @@ wgraph::wgraph(unsigned int N1, unsigned long M1) {
 wgraph::~wgraph() { delete [] firstedge; delete [] edges; }
 
 void wgraph::reset() {
-	delete [] firstedge; 
+	delete [] firstedge;
 	delete [] edges;
 	firstedge = new edge[N+1];
 	edges = new wgedge[M+1];
@@ -77,11 +77,11 @@ bool wgraph::getedge(edge e, FILE* f) {
 // Read one edge from *f into edges[e]. Return true on success, else false.
 	char c;
 	if (cflush('(',f) == EOF) return false;
-	
+
 	fscanf(f,"%d",&edges[e].l);
 	if (cflush(',',f) == EOF) return false;
 	fscanf(f,"%d",&edges[e].r);
-	
+
 	if (cflush(',',f) == EOF) return false;
 	fscanf(f,"%d",&edges[e].wt);
 	if (cflush(')',f) == EOF) return false;
@@ -90,7 +90,10 @@ bool wgraph::getedge(edge e, FILE* f) {
 
 edge wgraph::join(vertex u, vertex v, weight W) {
 // Join u and v with edge of given weight. Return edge number.
-	if (++m > M) fatal("wgraph: too many edges");
+	if (++m > M){
+		printf("m = %ld, M = %ld \n",m,M);
+		fatal("wgraph: too many edges");
+	}
 	edges[m].l = u; edges[m].r = v; edges[m].wt = W;
 	edges[m].lnext = firstedge[u]; firstedge[u] = m;
 	edges[m].rnext = firstedge[v]; firstedge[v] = m;
@@ -160,7 +163,7 @@ void wgraph::hsort() {
 			if (c+1 <= m && edges[c+1].wt >= edges[c].wt) c++;
 			if (edges[c].wt <= w) break;
 			edges[p] = edges[c]; p = c;
-		}		
+		}
 		edges[p] = e;
 	}
 	// now edges are in heap-order with largest weight edge on top
@@ -177,7 +180,7 @@ void wgraph::hsort() {
 			if (c+1 <= mm && edges[c+1].wt >= edges[c].wt) c++;
 			if (edges[c].wt <= w) break;
 			edges[p] = edges[c]; p = c;
-		}		
+		}
 		edges[p] = e;
 	}
 }
@@ -189,7 +192,7 @@ void wgraph::to_dot(char *filename){
     	fprintf(file, " %ld [shape=circle,label=\"%ld\"];\n",u,u);
     }
     for (edge e = 1; e <=m; e++) {
-        fprintf(file, "%ld -> %ld [shape=none,label=\"%ld\"];\n", left(e),right(e),w(e));                       
+        fprintf(file, "%ld -> %ld [shape=none,label=\"%ld\"];\n", left(e),right(e),w(e));
     }
     fprintf(file, "}\n");
     fclose(file);

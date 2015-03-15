@@ -230,14 +230,14 @@ void TransTable::print() {
 
 	//print state_split
 	State_split_fout.open(performances[3].c_str());
-	char buffer[20];
+	//char buffer[20];
 	State_split_fout
-			<< "block_size ns(character_index) nj(character_index) avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	ns(one block)	nj(one block)	#total_block";
+			<< "block_size	avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	#second_index_entry_size	#second_index_block_num	#data_entry_size	#data_block_num";
 
 	for (int i = 0; i < 8; ++i) {
 		block_size = 32 * pow(2, i);
-		sprintf(buffer, "TCAM_%d.txt", block_size);
-		TCAM_fout.open(buffer);
+		//sprintf(buffer, "TCAM_%d.txt", block_size);
+		//TCAM_fout.open(buffer);
 
 		original_block_num = ceil(original_rows * 1.0 / block_size);
 		character_index_block_num = ceil(
@@ -428,17 +428,17 @@ void TransTable::print_2() {
 
 	//print state_split
 	State_split_fout.open(performances[3].c_str());
-	char buffer[20], buffer_detail[20];
+	//char buffer[20];
 
 	State_split_fout
-			<< "block_size ns(character_index) nj(character_index) avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	ns(one block)	nj(one block)	#total_block";
+			<< "block_size	avg(ns)	avg(nj)	#block	max(ns)	max(nj)	#block	min(ns)	min(nj)	#block	mid(ns)	mid(nj)	#block	#second_index_entry_size	#second_index_block_num	#data_entry_size	#data_block_num";
 
 	for (int i = 0; i < 8; ++i) {
 		block_size = 32 * pow(2, i);
-		sprintf(buffer, "TCAM_%d_2.txt", block_size);
-		sprintf(buffer_detail, "TCAM_detail_%d_2.txt", block_size);
-		TCAM_fout.open(buffer);
-		TCAM_detail_fout.open(buffer_detail);
+//		sprintf(buffer, "TCAM_%d_2.txt", block_size);
+//		sprintf(buffer_detail, "TCAM_detail_%d_2.txt", block_size);
+//		TCAM_fout.open(buffer);
+//		TCAM_detail_fout.open(buffer_detail);
 
 		original_block_num = ceil(original_rows * 1.0 / block_size);
 		character_index_block_num = ceil(
@@ -456,15 +456,17 @@ void TransTable::print_2() {
 		_compress.print_transition_merge_tcam_2(Trans_Merge_fout, block_size,
 				_header_2);
 
-		_compress.print_split_tcam_2(TCAM_fout, State_split_fout,
-				block_size, _header_2);
+		_compress.print_split_tcam_2(TCAM_fout, State_split_fout, block_size,
+				_header_2);
 
-		_compress.print_split_tcam_detail_2(TCAM_detail_fout,
-				State_split_fout, block_size, _header_2);
+//		_compress.print_split_tcam_detail_2(TCAM_detail_fout,
+//				State_split_fout, block_size, _header_2);
 
 		TCAM_fout.close();
-		TCAM_detail_fout.close();
+//		TCAM_detail_fout.close();
 	}
+
+	cout << "Success" << endl;
 	DFA_fout.close();
 	Character_Index_fout.close();
 	Trans_Merge_fout.close();
